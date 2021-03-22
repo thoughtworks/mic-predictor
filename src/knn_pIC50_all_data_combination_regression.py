@@ -54,6 +54,10 @@ def get_tuned_model(clf, param_grid, X_train, y_train, n_jobs):
 
 def get_tuned_regressor_train_test_scores(X, y, random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
+    y_train_mic = y_train[:,1]
+    y_train_pic50 = y_train[:,0]
+    y_test_mic = y_test[:,1]
+    y_test_pic50 = y_test[:,0]
     max_n_neighbors = int(np.sqrt(X_train.shape[0]))
     param_grid = {
                     'n_neighbors': range(1, max_n_neighbors),
@@ -63,11 +67,12 @@ def get_tuned_regressor_train_test_scores(X, y, random_state=42):
     #param_grid = {'C':[100]}
 
     knn = KNeighborsRegressor()
-    grid_search = get_tuned_model(knn, param_grid, X_train, y_train, n_jobs=10)
+    grid_search = get_tuned_model(knn, param_grid, X_train, y_train_pic50, n_jobs=10)
     best_grid = grid_search.best_estimator_
-    best_grid.fit(X_train, y_train)
-    y_pred = best_grid.predict(X_test)
-    return grid_search.best_params_, get_score(y_test, y_pred)
+    best_grid.fit(X_train, y_train_pic50)
+    y_pred_pic50 = best_grid.predict(X_test)
+    y_pred_mic = np.exp(-1*y_pred_pic50)/(1e-6)
+    return grid_search.best_params_, get_score(y_test_mic, y_pred_mic)
     
 def main():  
     avp_ic50 = pd.read_csv("../data/raw/AVP-IC50Pred_train.csv")
@@ -79,6 +84,7 @@ def main():
 
     df = pd.concat([avp_ic50[['Sequence','MIC']], ha_avp], axis=0).drop_duplicates(['Sequence']).reset_index(drop=True)
     df = sequence_filtering(df)
+    df['pIC50'] = df['MIC'].apply(lambda x: -np.log(x*1e-6))
 
     ############# AA freq #############
     aa_freq = reduce_by_kmer_frequency(df)
@@ -120,7 +126,7 @@ def main():
 
     import os
 
-    res_file = "../results/knn_regressor_all_data_combination_separate_prop_kmer_3_contextWindow_10_vector_100.csv"
+    res_file = "../results/knn_regressor_pIC50_all_data_combination_separate_prop_kmer_3_contextWindow_10_vector_100.csv"
     if not os.path.exists(res_file):
         with open(res_file, "w") as f:
             header = ", ".join(["Data", "Regressor", "Best parameters", 
@@ -131,7 +137,7 @@ def main():
 
     for data_name, data in data_dict.items():
         print(f"#################################### {data_name} ####################################")
-        best_params, scores = get_tuned_regressor_train_test_scores(data, df['MIC'])
+        best_params, scores = get_tuned_regressor_train_test_scores(data, df[['pIC50', 'MIC']])
         data_to_write = data_name + '; ' + "KNN" + '; ' + '"'+str(best_params)+'"' + '; ' + '; '.join([str(s) for s in scores]) + '\n'
         
         with open(res_file, "a") as f:
