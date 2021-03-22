@@ -93,7 +93,7 @@ def main():
     ############# Prot2Vec #############
     uniprot_embedding = biovec.models.load_protvec("../data/embeddings/uniprot__kmer_3_contextWindow_10_vector_100_reduction_None")
 
-    avg_protvec = convert_sequences_to_avg_vectors(df['Sequence'], uniprot_embedding, kmer=5)
+    avg_protvec = convert_sequences_to_avg_vectors(df['Sequence'], uniprot_embedding, kmer=3)
     avg_protvec = avg_protvec.reset_index(drop=True)
 
     ############# physicochemical properties #############
