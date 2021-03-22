@@ -120,7 +120,7 @@ def main():
 
     import os
 
-    res_file = "../results/knn_regressor_all_data_combination_separate_prop_kmer_3_contextWindow_10_vector_100.csv"
+    res_file = "../results/knn_regressor_all_data_combination_separate_props_mic.csv"
     if not os.path.exists(res_file):
         with open(res_file, "w") as f:
             header = ", ".join(["Data", "Regressor", "Best parameters", 
