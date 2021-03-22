@@ -1,0 +1,14 @@
+Data, Regressor, Best parameters, MSE, MAE, MAPE
+aa_freq, KNN, "{'metric': 'chebyshev', 'n_neighbors': 1, 'weights': 'uniform'}", 5264.466417842581, 32.42139004405594, 1443086.143324303
+dipep_freq, KNN, "{'metric': 'euclidean', 'n_neighbors': 1, 'weights': 'uniform'}", 3578.824433898592, 27.736770323776227, 4536847.621749374
+avg_protvec, KNN, "{'metric': 'chebyshev', 'n_neighbors': 1, 'weights': 'uniform'}", 5264.466417842581, 32.42139004405594, 1443086.143324303
+protvec+aa_freq, KNN, "{'metric': 'euclidean', 'n_neighbors': 1, 'weights': 'uniform'}", 3872.9836909510987, 29.606010813286716, 89305.1952793512
+protvec+dipep_freq, KNN, "{'metric': 'euclidean', 'n_neighbors': 1, 'weights': 'uniform'}", 3812.866251237838, 28.626045848251746, 38427.619517675776
+protvec+aa_freq+dipep_freq, KNN, "{'metric': 'chebyshev', 'n_neighbors': 3, 'weights': 'uniform'}", 2906.8521699601783, 30.46263668741258, 1855472.0484756373
+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4032.816185341059, 32.126327596503494, 214157.4516638219
+aa_freq+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4032.8153188812685, 32.12386955454546, 214108.29082466103
+dipep_freq+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4338.643744063086, 32.70468074335664, 213970.74204054894
+aa_freq+dipep_freq+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4338.552296982668, 32.700946477622374, 213921.57767843836
+protvec+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4341.027994605045, 32.51726815594405, 213921.20170831122
+protvec+aa_freq+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4341.027994605045, 32.51726815594405, 213921.20170831122
+protvec+aa_freq+dipep_freq+physicochemical_prop, KNN, "{'metric': 'euclidean', 'n_neighbors': 2, 'weights': 'uniform'}", 4353.705689821829, 32.809408016083914, 213920.43005863184
