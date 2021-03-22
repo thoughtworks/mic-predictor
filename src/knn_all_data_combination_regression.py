@@ -54,7 +54,7 @@ def get_tuned_model(clf, param_grid, X_train, y_train, n_jobs):
 
 def get_tuned_regressor_train_test_scores(X, y, random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
-    max_n_neighbors = min(int(np.sqrt(X_train.shape[1])), X_train.shape[0])
+    max_n_neighbors = int(np.sqrt(X_train.shape[0]))
     param_grid = {
                     'n_neighbors': range(1, max_n_neighbors),
                     'weights': ['uniform', 'distance'],
