@@ -4,6 +4,8 @@ import pandas as pd
 from itertools import chain, combinations
 from collections import Counter
 
+from scipy.stats import pearsonr
+
 from utils import *
 
 from sklearn.neighbors import KNeighborsRegressor
@@ -41,8 +43,9 @@ def get_score(y_true, y_pred):
     mse = mean_squared_error(y_true, y_pred)
     mae = mean_absolute_error(y_true, y_pred)
     mape = mean_absolute_percentage_error(y_true, y_pred)
+    pearson_corrcoef = pearsonr(y_true, y_pred)
     
-    return (mse, mae, mape)
+    return (mse, mae, mape, pearson_corrcoef)
 
 def get_tuned_model(clf, param_grid, X_train, y_train, n_jobs):
     grid_search = GridSearchCV(estimator = clf, param_grid = param_grid, 
@@ -54,10 +57,10 @@ def get_tuned_model(clf, param_grid, X_train, y_train, n_jobs):
 
 def get_tuned_regressor_train_test_scores(X, y, random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
-    y_train_mic = y_train[:,1]
-    y_train_pic50 = y_train[:,0]
-    y_test_mic = y_test[:,1]
-    y_test_pic50 = y_test[:,0]
+    y_train_mic = y_train['MIC']
+    y_train_pic50 = y_train['pIC50']
+    y_test_mic = y_test['MIC']
+    y_test_pic50 = y_test['pIC50']
     max_n_neighbors = int(np.sqrt(X_train.shape[0]))
     param_grid = {
                     'n_neighbors': range(1, max_n_neighbors),
@@ -129,8 +132,8 @@ def main():
     res_file = "../results/knn_regressor_all_data_combination_separate_prop_mic_to_pIC50_to_mic.csv"
     if not os.path.exists(res_file):
         with open(res_file, "w") as f:
-            header = ", ".join(["Data", "Regressor", "Best parameters", 
-                            "MSE", "MAE","MAPE"])+"\n"
+            header = ";".join(["Data", "Regressor", "Best parameters", 
+                            "MSE", "MAE","MAPE", "PCC"])+"\n"
             f.write(header)
     else:
         raise FileExistsError("Result file already exists.")
@@ -138,7 +141,7 @@ def main():
     for data_name, data in data_dict.items():
         print(f"#################################### {data_name} ####################################")
         best_params, scores = get_tuned_regressor_train_test_scores(data, df[['pIC50', 'MIC']])
-        data_to_write = data_name + '; ' + "KNN" + '; ' + '"'+str(best_params)+'"' + '; ' + '; '.join([str(s) for s in scores]) + '\n'
+        data_to_write = data_name + ';' + "KNN" + ';' + '"'+str(best_params)+'"' + ';' + ';'.join([str(s) for s in scores]) + '\n'
         
         with open(res_file, "a") as f:
             f.write(data_to_write)
