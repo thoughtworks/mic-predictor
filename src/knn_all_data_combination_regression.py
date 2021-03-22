@@ -79,6 +79,7 @@ def main():
 
     df = pd.concat([avp_ic50[['Sequence','MIC']], ha_avp], axis=0).drop_duplicates(['Sequence']).reset_index(drop=True)
     df = sequence_filtering(df)
+    df['pIC50'] = df['MIC'].apply(lambda x: -np.log(x*1e-6))
 
     ############# AA freq #############
     aa_freq = reduce_by_kmer_frequency(df)
@@ -109,7 +110,7 @@ def main():
         "residue_repeats": residue_repeats
     }
 
-    data_dict.update({prop: physicochemical_prop[prop] for prop in physicochemical_prop.columns})
+    data_dict.update({prop: pd.DataFrame(physicochemical_prop[prop]) for prop in physicochemical_prop.columns})
 
     base_data_list = data_dict.copy().keys()
     
@@ -120,7 +121,7 @@ def main():
 
     import os
 
-    res_file = "../results/knn_regressor_all_data_combination_separate_prop_kmer_3_contextWindow_10_vector_100.csv"
+    res_file = "../results/knn_regressor_pIC50_all_data_combination_separate_prop_kmer_3_contextWindow_10_vector_100.csv"
     if not os.path.exists(res_file):
         with open(res_file, "w") as f:
             header = ", ".join(["Data", "Regressor", "Best parameters", 
@@ -131,7 +132,7 @@ def main():
 
     for data_name, data in data_dict.items():
         print(f"#################################### {data_name} ####################################")
-        best_params, scores = get_tuned_regressor_train_test_scores(data, df['MIC'])
+        best_params, scores = get_tuned_regressor_train_test_scores(data, df['pIC50'])
         data_to_write = data_name + '; ' + "KNN" + '; ' + '"'+str(best_params)+'"' + '; ' + '; '.join([str(s) for s in scores]) + '\n'
         
         with open(res_file, "a") as f:
