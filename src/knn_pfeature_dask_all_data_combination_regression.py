@@ -1,11 +1,13 @@
 import os
 import ray
 import glob
+from tqdm import tqdm
 import pickle
 import biovec
 import numpy as np
 import pandas as pd
 from dask import delayed, compute
+from dask.distributed import Client, LocalCluster
 from itertools import chain, combinations
 from functools import reduce
 from collections import Counter
@@ -122,7 +124,7 @@ def main():
     ha_avp = pd.read_csv("../data/raw/HA_AVP.csv")
     paac = pd.read_csv("../data/pfeature/paac.csv")
     paac = paac.drop(['ID'], axis=1)
-    cetd = pd.read_csv("../data/pfeature/cetd.csv")
+    cetd = pd.read_csv("../data/pfeature/CeTD.csv")
     cetd = cetd.drop(['ID'], axis=1)
     shannon_entropy = pd.read_csv("../data/pfeature/ha_avp_ic50_shannon_entropy.csv")
     shannon_entropy = shannon_entropy.drop(['ID', 'Sequence'], axis=1)
@@ -175,20 +177,24 @@ def main():
         all_data_combinations.extend(list(combinations(base_data_list, i)))
 
 
-    res_file = "../results/knn_regressor_with_pfeature_all_data_combination_separate_props_mic.pkl"
+    res_file = "../results/test_knn_regressor_with_pfeature_all_data_combination_separate_props_mic.csv"
     if not os.path.exists(res_file):
         pd.DataFrame(columns=["Data", "Best_params", "MSE", "MAE", "MAPE", "PCC"]).to_csv(res_file, 
                                                                                         index=False, sep=';')
     else:
         raise FileExistsError("Result file already exists.")
     
-    results = []
-    for reduction_chunks in chunks(all_data_combinations, 5):
-        results.extend(delayed(list)(map(lambda combination: delayed(run_regression_with_combination)(
-            combination, df['MIC'], data_dict),
-                            reduction_chunks
-                            )).compute(scheduler='processes'))
-        pd.DataFrame(results).to_csv(res_file, mode="a", header=False, index=False, sep=';')
+    
+    with LocalCluster(n_workers=10) as cluster, Client(cluster) as client:
+        results = []
+        chunk_size = 10
+        for reduction_chunks in tqdm(chunks(all_data_combinations, chunk_size), desc="Chuncks completed", unit="chunk", total=int(len(all_data_combinations)/chunk_size)):
+            res = delayed(list)(map(lambda combination: delayed(run_regression_with_combination)(
+		    combination, df['MIC'], data_dict),
+		                    reduction_chunks
+		                    )).compute(scheduler='processes')
+		#results.extend(res)
+            pd.DataFrame(res).to_csv(res_file, mode="a", header=False, index=False, sep=';')
     
 if __name__ == "__main__":
     main()
