@@ -15,14 +15,15 @@ ScalerClassLike = TypeVar("ScalerClassLike")
 #from sklearn.base import BaseEstimator, TransformerMixin
 
 class ZScalesExtractor:
-    def __init__(self, zscales: Union[DataFrameLike, PathLike], calc_cross_term: bool=True,
-                 scaler: Union[ScalerClassLike, None]=None):
+    def __init__(self, zscales: Union[DataFrameLike, PathLike], target_col_name: str="Target_seq",
+                 calc_cross_term: bool=True, scaler: Union[ScalerClassLike, None]=None):
         if isinstance(zscales, pd.DataFrame):
             self.__zscales_df = zscales
         elif os.path.isfile(zscales):
             self.__zscales_df = pd.read_csv(zscales)
         else:
             raise Exception("Invalid argument for zscales")
+        self.__target_col_name = target_col_name
         self.zscale_dict = dict(zip(self.__zscales_df["1-letter-code"],
                                     self.__zscales_df[["z1", "z2", "z3", "z4", "z5"]].values.tolist()
                                    )
@@ -49,7 +50,7 @@ class ZScalesExtractor:
     
     def transform(self, X, y = None):
         peptide_zscales = X.apply(lambda row: self.__get_seq_zscales(row["Sequence"]), axis=1, result_type='expand')
-        target_zscales = X.apply(lambda row: self.__get_seq_zscales(row["Target_seq"]), axis=1, result_type='expand')
+        target_zscales = X.apply(lambda row: self.__get_seq_zscales(row[self.__target_col_name]), axis=1, result_type='expand')
         
         if not self.__scaler_fitted:
             _ = self.peptide_scaler.fit(peptide_zscales)
