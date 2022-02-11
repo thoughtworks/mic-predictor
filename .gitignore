@@ -2,5 +2,6 @@ __pycache__/
 .DS_Store
 .vscode/
 .ipynb_checkpoints/
+*/.ipynb_checkpoints/
 */dask-worker-space/
 notebooks/phase-separation-master/*
