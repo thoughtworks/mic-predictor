@@ -4,4 +4,3 @@ __pycache__/
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
 */dask-worker-space/
-notebooks/phase-separation-master/*
