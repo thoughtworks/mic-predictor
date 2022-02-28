@@ -1,112 +1,60 @@
-from tqdm import tqdm
-import biovec
 import numpy as np
 import pandas as pd
-from itertools import chain, product
-from collections import Counter
+from tqdm import tqdm
+from scipy.stats import pearsonr
+from sklearn.feature_selection import RFE
+from sklearn.model_selection import cross_val_predict, GridSearchCV
+from sklearn.metrics import r2_score, mean_squared_error
 
-AMINO_ACID_RESIDUES = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+def mean_absolute_percentage_error(y_true, y_pred): 
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-def prot_vec_to_vecs(pv, x, k):
-    return pv.to_vecs(x)
+def get_scores(y_true, y_pred):
+    mape = mean_absolute_percentage_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+    pcc = pearsonr(y_true, y_pred)[0]
+    mse = mean_squared_error(y_true, y_pred)
+    return {'mape': mape, 'r2': r2, 'pcc': pcc, 'mse': mse}
 
-def split_n_grams(seq, n):
-    """
-    'AGAMQSASM' => [['AGA', 'MQS', 'ASM'], ['GAM','QSA'], ['AMQ', 'SAS']]
-    In case of n = 3
-    """
-    grams = []
-    for i in range(n):
-        grams.append(zip(*[iter(seq[i:])] * n))
+def get_adj_r2(r2, n, p):
+    num = (1-r2)*(n-1)
+    denom = (n-p-1)
+    return 1 - (num/denom)
 
-    str_ngrams = []
-    for ngrams in grams:
-        x = []
-        for ngram in ngrams:
-            x.append("".join(ngram))
-        str_ngrams.append(x)
-    return str_ngrams
+def get_loo_scores(data, target, model, features=None):
+    X = data
+    y = target
+    if features is not None:
+        X = data[features]
+    y_pred = cross_val_predict(model, X, y, cv=X.shape[0], n_jobs=10)
+    return get_scores(y, y_pred)
 
-def words_to_vec(pv, seq, n=5):
-    ngram_patterns = split_n_grams(seq, n)
+def adj_r2_feature_selection(data, target, model):
+    rfe = RFE(model, n_features_to_select=5, step=1)
+    rfe.fit(data, target)
+    rfe_ranking_ = rfe.ranking_
+    rank_sorted_features = sorted(data.columns, key=dict(zip(data.columns, rfe_ranking_)).get)
+    best_adj_r2 = 0
+    feature_lst = []
+    best_scores = {}
+    for i in tqdm(range(0, len(rank_sorted_features))):
+        features = best_scores.get('features', []) + [rank_sorted_features[i]]
+        loo_score = get_loo_scores(data, target, model, features)
+        scores = {'features': features}
+        scores.update(loo_score)
+        adj_r2 = get_adj_r2(scores['r2'], data.shape[0], len(scores['features']))
+        
+        if adj_r2 > best_adj_r2:
+            best_adj_r2 = adj_r2
+            best_scores = scores
+            best_scores['adj_r2'] = adj_r2
+            
+    return best_scores
 
-    vectors = []
-    for ngrams in ngram_patterns:
-        ngram_vecs = []
-        for ngram in ngrams:
-            try:
-                ngram_vecs.append(pv[ngram])
-            except:
-                print(ngram)
-                raise Exception("Model has never trained this n-gram: " + ngram)
-        vectors.append(sum(ngram_vecs))
-    return vectors
+def get_grid_search_best_params(data, target, model, param_grid, scoring, n_jobs=1, cv=5, verbose=2):
+    grid = GridSearchCV(estimator = model, param_grid = param_grid, 
+                        cv = cv, verbose=verbose, scoring = scoring, n_jobs = n_jobs)
 
-def dipeptide_encoding(seq, n):
-    """
-    Returns n-Gram Motif frequency
-    https://www.biorxiv.org/content/10.1101/170407v1.full.pdf
-    """
-    aa_list = list(seq)
-    return {''.join(aa_list): n for aa_list, n in Counter(zip(*[aa_list[i:] for i in range(n)])).items() if
-            not aa_list[0][-1] == (',')}
-
-def get_kmer_list(kmer):
-    return ["".join(s) for s in product(AMINO_ACID_RESIDUES, repeat=kmer)]
-
-def reduce_by_kmer_frequency(data, kmer=1):
-    seq_vec = data.Sequence.apply(lambda x: dipeptide_encoding(x, kmer)).to_list()
-    df = pd.DataFrame(seq_vec)
-    df = df.fillna(0)
-    df = df.reindex(columns=get_kmer_list(kmer), fill_value=0)
-    return df.div(df.sum(axis=1), axis=0)
-
-def convert_sequences_to_vectors(data, embedding, to_vec=prot_vec_to_vecs, kmer=5):
-    output = pd.DataFrame()
-    errors = list()
-    for row in tqdm(data, desc="Creating vectors", unit="sequence"):
-        try:
-            output = output.append(pd.DataFrame(sum(to_vec(embedding, row, kmer))).T)
-        except:
-            output = output.append(pd.DataFrame(np.zeros((1, embedding.vector_size))))
-            errors.append(row)
-    return output, errors
-
-OTHER_ALPHABETS = "UOXBZJ"
-
-def convert_sequences_to_avg_vectors(data, embedding, kmer_wt=None, kmer=3):
-    output = pd.DataFrame()
-    if kmer_wt is None:
-        for row in tqdm(data, desc="Creating vectors", unit="sequence"):
-            vec = []
-            ngrams = list(chain(*split_n_grams(row, kmer)))
-            for ngram in ngrams:
-                try:
-                    vec.append(embedding[ngram])
-                except:
-                    vec.append(np.zeros(embedding.vector_size))
-            output = output.append(pd.DataFrame(np.mean(vec, axis=0)).T)
-    else:
-        for i, row in tqdm(enumerate(data), desc="Creating vectors", unit="sequence"):
-            vec = []
-            ngrams = list(chain(*split_n_grams(row, kmer)))
-            for ngram in ngrams:
-                try:
-                    vec.append(embedding[ngram] * kmer_wt[ngram][i])
-                except:
-                    vec.append(np.zeros(embedding.vector_size))
-            output = output.append(pd.DataFrame(np.mean(vec, axis=0)).T)
-    return output
-
-def contains(other_alphabets, seq):
-    for o in str(other_alphabets):
-        if o in str(seq):
-            return True
-    return False
-
-def sequence_filtering(data):
-    sequences = data[data.apply(lambda r: not contains(OTHER_ALPHABETS, r['Sequence']), axis=1)]
-    sequences = sequences[sequences.apply(lambda r: not str(r['Sequence']) == 'nan', axis=1)]
-    sequences['Sequence'] = sequences['Sequence'].apply(lambda x: x.upper())
-    sequences['Sequence'] = sequences['Sequence'].apply(lambda x: x.strip())
-    return sequences
+    _ = grid.fit(data, target)
+    return grid.best_params_
